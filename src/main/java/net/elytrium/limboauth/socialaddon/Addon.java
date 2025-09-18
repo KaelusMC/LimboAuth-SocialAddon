@@ -122,6 +122,15 @@ public class Addon {
     Objects.requireNonNull(org.apache.commons.logging.impl.Jdk14Logger.class);
     Objects.requireNonNull(org.apache.commons.logging.impl.Jdk13LumberjackLogger.class);
     Objects.requireNonNull(org.apache.commons.logging.impl.SimpleLog.class);
+
+    // 'api.host' and 'oauth.host' is used by vk-java-sdk
+    if (System.getProperty("api.host") == null) {
+      System.setProperty("api.host", "api.vk.ru");
+    }
+
+    if (System.getProperty("oauth.host") == null) {
+      System.setProperty("oauth.host", "oauth.vk.ru");
+    }
   }
 
   @Inject
