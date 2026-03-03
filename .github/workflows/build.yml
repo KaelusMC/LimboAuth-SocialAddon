@@ -19,6 +19,26 @@ jobs:
         with:
           distribution: adopt
           java-version: 17
+      - name: Prepare truststore for Elytrium Maven
+        run: |
+          set -euo pipefail
+          TRUSTSTORE="$RUNNER_TEMP/cacerts"
+          cp "$JAVA_HOME/lib/security/cacerts" "$TRUSTSTORE"
+
+          openssl s_client -showcerts -servername maven.elytrium.net -connect maven.elytrium.net:443 </dev/null 2>/dev/null \
+            | awk '/-----BEGIN CERTIFICATE-----/ {c++; in_cert=1} in_cert {print > ("cert-" c ".crt")} /-----END CERTIFICATE-----/ {in_cert=0}'
+
+          ls cert-*.crt >/dev/null 2>&1
+
+          for cert in cert-*.crt; do
+            keytool -importcert -noprompt -trustcacerts \
+              -alias "elytrium-${cert}" \
+              -file "$cert" \
+              -keystore "$TRUSTSTORE" \
+              -storepass changeit
+          done
+
+          echo "GRADLE_OPTS=-Djavax.net.ssl.trustStore=$TRUSTSTORE -Djavax.net.ssl.trustStorePassword=changeit" >> "$GITHUB_ENV"
       - name: Build LimboAuth Social Addon
         run: ./gradlew build
       - name: Upload LimboAuth Social Addon
