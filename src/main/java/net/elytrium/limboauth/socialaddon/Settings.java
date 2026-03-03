@@ -83,6 +83,12 @@ public class Settings extends YamlConfig {
     @Comment("Allow linking social to the player, who already has linked this type of social")
     public boolean ALLOW_ACCOUNT_RELINK = true;
 
+    @Comment({
+        "Require social linking before entering the main server after authorization",
+        "Player will stay on auth stage until social is linked"
+    })
+    public boolean REQUIRE_SOCIAL_LINK_TO_PLAY = false;
+
     public List<String> AFTER_LINKAGE_COMMANDS = List.of("alert {NICKNAME} has linked a social account");
     public List<String> AFTER_UNLINKAGE_COMMANDS = List.of();
     public List<String> START_MESSAGES = List.of("/start", "Начать");
@@ -301,6 +307,7 @@ public class Settings extends YamlConfig {
 
       @Comment("This message will be sent to the players without social-link right after their login")
       public String LINK_ANNOUNCEMENT = "{PRFX} Hey! We recommend you to link a social network using the /addsocial command to secure your account";
+      public String LINK_REQUIRED_TO_PLAY = "{PRFX} You must link a social network with /addsocial before entering the server";
 
       public String SOCIAL_EXCEPTION_CAUGHT = "An exception occurred while processing your request";
     }

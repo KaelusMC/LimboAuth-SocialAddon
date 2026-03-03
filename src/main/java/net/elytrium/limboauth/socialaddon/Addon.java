@@ -51,6 +51,7 @@ import net.elytrium.commons.kyori.serialization.Serializer;
 import net.elytrium.commons.kyori.serialization.Serializers;
 import net.elytrium.commons.utils.updates.UpdatesChecker;
 import net.elytrium.limboauth.LimboAuth;
+import net.elytrium.limboauth.event.TaskEvent;
 import net.elytrium.limboauth.handler.AuthSessionHandler;
 import net.elytrium.limboauth.model.RegisteredPlayer;
 import net.elytrium.limboauth.socialaddon.command.ForceSocialUnlinkCommand;
@@ -107,6 +108,7 @@ public class Addon {
   private final Map<String, Integer> codeMap;
   private final Map<String, TempAccount> requestedReverseMap;
   private final Map<String, CachedRegisteredUser> cachedAccountRegistrations = new ConcurrentHashMap<>();
+  private final Map<String, TaskEvent> pendingSocialLinkSessions;
 
   private Dao<SocialPlayer, String> dao;
   private Pattern nicknamePattern;
@@ -151,6 +153,7 @@ public class Addon {
     this.plugin = (LimboAuth) container.flatMap(PluginContainer::getInstance).orElseThrow();
     this.codeMap = new ConcurrentHashMap<>();
     this.requestedReverseMap = new ConcurrentHashMap<>();
+    this.pendingSocialLinkSessions = new ConcurrentHashMap<>();
   }
 
   @Subscribe(order = PostOrder.NORMAL)
@@ -646,6 +649,22 @@ public class Addon {
     updateBuilder.where().eq(SocialPlayer.LOWERCASE_NICKNAME_FIELD, lowercaseNickname);
     updateBuilder.updateColumnValue(dbField, id);
     updateBuilder.update();
+    this.completePendingSocialLinkSession(lowercaseNickname);
+  }
+
+  public void holdAuthorizationUntilSocialLinked(String lowercaseNickname, TaskEvent event) {
+    this.pendingSocialLinkSessions.put(lowercaseNickname.toLowerCase(Locale.ROOT), event);
+  }
+
+  public void completePendingSocialLinkSession(String lowercaseNickname) {
+    TaskEvent pendingSession = this.pendingSocialLinkSessions.remove(lowercaseNickname.toLowerCase(Locale.ROOT));
+    if (pendingSession != null) {
+      pendingSession.complete(TaskEvent.Result.NORMAL);
+    }
+  }
+
+  public void clearPendingSocialLinkSession(String lowercaseNickname) {
+    this.pendingSocialLinkSessions.remove(lowercaseNickname.toLowerCase(Locale.ROOT));
   }
 
   public Integer getCode(String nickname) {

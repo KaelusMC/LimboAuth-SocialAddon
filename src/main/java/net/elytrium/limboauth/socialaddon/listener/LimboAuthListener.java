@@ -53,6 +53,7 @@ public class LimboAuthListener {
   private final Component blockedAccount = Addon.getSerializer().deserialize(Settings.IMP.MAIN.STRINGS.BLOCK_KICK_MESSAGE);
   private final Component askedKick = Addon.getSerializer().deserialize(Settings.IMP.MAIN.STRINGS.NOTIFY_ASK_KICK_MESSAGE);
   private final Component askedValidate = Addon.getSerializer().deserialize(Settings.IMP.MAIN.STRINGS.NOTIFY_ASK_VALIDATE_GAME);
+  private final Component linkRequiredToPlay = Addon.getSerializer().deserialize(Settings.IMP.MAIN.STRINGS.LINK_REQUIRED_TO_PLAY);
   private final Component linkAnnouncement;
 
   private final Addon addon;
@@ -66,6 +67,7 @@ public class LimboAuthListener {
 
   private final GeoIp geoIp;
   private final boolean auth2faWithoutPassword = Settings.IMP.MAIN.AUTH_2FA_WITHOUT_PASSWORD;
+  private final boolean requireSocialLinkToPlay = Settings.IMP.MAIN.REQUIRE_SOCIAL_LINK_TO_PLAY;
 
   public LimboAuthListener(Addon addon, LimboAuth plugin, Dao<SocialPlayer, String> socialPlayerDao, SocialManager socialManager,
                            List<List<AbstractSocial.ButtonItem>> keyboard, GeoIp geoIp) {
@@ -158,8 +160,15 @@ public class LimboAuthListener {
       }
     }
 
-    if (!this.playerExists(proxyPlayer) && this.linkAnnouncement != null) {
+    boolean hasSocialLink = this.playerExists(proxyPlayer);
+    if (!hasSocialLink && this.linkAnnouncement != null) {
       proxyPlayer.sendMessage(this.linkAnnouncement);
+    }
+
+    if (!hasSocialLink && this.requireSocialLinkToPlay) {
+      event.setResult(TaskEvent.Result.WAIT);
+      this.addon.holdAuthorizationUntilSocialLinked(proxyPlayer.getUsername(), event);
+      proxyPlayer.sendMessage(this.linkRequiredToPlay);
     }
   }
 
@@ -182,6 +191,12 @@ public class LimboAuthListener {
           .getProxyPlayer()
           .sendMessage(this.linkAnnouncement);
     }
+
+    if (this.requireSocialLinkToPlay) {
+      event.getPlayer()
+          .getProxyPlayer()
+          .sendMessage(this.linkRequiredToPlay);
+    }
   }
 
   @Subscribe
@@ -197,6 +212,10 @@ public class LimboAuthListener {
 
   @Subscribe
   public void onPlayerLeave(DisconnectEvent event) {
+    String lowercaseNickname = event.getPlayer().getUsername().toLowerCase(Locale.ROOT);
+    this.sessions.remove(lowercaseNickname);
+    this.addon.clearPendingSocialLinkSession(lowercaseNickname);
+
     if (event.getPlayer().getCurrentServer().isEmpty()) {
       return;
     }
@@ -206,8 +225,6 @@ public class LimboAuthListener {
       if (Settings.IMP.MAIN.ENABLE_NOTIFY && player.isNotifyEnabled()) {
         this.socialManager.broadcastMessage(player, Settings.IMP.MAIN.STRINGS.NOTIFY_LEAVE, this.keyboard);
       }
-
-      this.sessions.remove(player.getLowercaseNickname());
     }
   }
 
